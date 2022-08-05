@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -v
 
 set -euo pipefail
 trap 'exit 2' ERR

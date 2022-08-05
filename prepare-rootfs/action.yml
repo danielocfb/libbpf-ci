@@ -29,7 +29,7 @@ runs:
         export KERNEL="${{ inputs.kernel }}"
         export KERNEL_ROOT="${{ inputs.kernel-root }}"
         $GITHUB_ACTION_PATH/run_vmtest.sh
-      shell: bash
+      shell: bash -v {0}
       env:
         PROJECT_NAME: ${{ inputs.project-name }}
         TARGET_ARCH: ${{ inputs.arch }}
