@@ -283,6 +283,13 @@ if [[ $FORCE -eq 0 && $SKIPIMG -eq 0 && -e $IMG ]]; then
 	exit 1
 fi
 
+echo "BUILDDIR is ${BUILDDIR:-}"
+echo "CWD is $(pwd)"
+ls -al . && :
+ls -al ${BUILDDIR:-.} && :
+ls -al include/ && :
+ls -al include/generated/ && :
+ls -al include/config/ && :
 # Only go to the network if it's actually a glob pattern.
 if [[ -v BUILDDIR ]]; then
 	KERNELRELEASE="$(make -C "$BUILDDIR" -s kernelrelease)"
