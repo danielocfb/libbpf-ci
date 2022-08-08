@@ -28,21 +28,21 @@ if [ ! -d "${REPO_PATH}" ]; then
 
 	mkdir -p $(dirname "${REPO_PATH}")
 	cd $(dirname "${REPO_PATH}")
-	# attempt to fetch desired bpf-next repo snapshot
-	if [ -n "${SNAPSHOT_URL}" ] && wget -nv ${SNAPSHOT_URL} && tar xf bpf-next-${LINUX_SHA}.tar.gz --totals ; then
-		mv bpf-next-${LINUX_SHA} $(basename ${REPO_PATH})
+	# attempt to fetch desired repo snapshot
+	if [ -n "${SNAPSHOT_URL}" ] && wget -nv ${SNAPSHOT_URL} && tar xf source-${LINUX_SHA}.tar.gz --totals ; then
+		mv source-${LINUX_SHA} $(basename ${REPO_PATH})
 	else
 		# but fallback to git fetch approach if that fails
 		mkdir -p $(basename ${REPO_PATH})
 		cd $(basename ${REPO_PATH})
 		git init
-		git remote add bpf-next ${KERNEL_ORIGIN}
+		git remote add origin ${KERNEL_ORIGIN}
 		# try shallow clone first
-		git fetch --depth 32 bpf-next
+		git fetch --depth 32 origin
 		# check if desired SHA exists
 		if ! git cat-file -e ${LINUX_SHA}^{commit} ; then
-			# if not, fetch all of bpf-next; slow and painful
-			git fetch bpf-next
+			# if not, fetch everything; slow and painful
+			git fetch origin
 		fi
 		git reset --hard ${LINUX_SHA}
 	fi
