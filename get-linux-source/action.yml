@@ -15,10 +15,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Get bpf-next source
+    - name: Get Linux source
       shell: bash
       run: |
         export KERNEL_ORIGIN='${{ inputs.repo }}'
         export KERNEL_BRANCH='${{ inputs.rev }}'
         export REPO_PATH='${{ inputs.dest }}'
-        ${{ github.action_path }}/checkout_latest_kernel.sh
+        ${{ github.action_path }}/checkout_kernel.sh
