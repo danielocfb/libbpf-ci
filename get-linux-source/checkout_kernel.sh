@@ -22,31 +22,28 @@ SNAPSHOT_URL=${KERNEL_ORIGIN}/snapshot/bpf-next-${LINUX_SHA}.tar.gz
 echo LINUX_SHA = ${LINUX_SHA}
 echo SNAPSHOT_URL = ${SNAPSHOT_URL}
 
-if [ ! -d "${REPO_PATH}" ]; then
-	echo
-	foldable start pull_kernel_srcs "Fetching kernel sources"
+foldable start pull_kernel_srcs "Fetching kernel sources"
 
-	mkdir -p $(dirname "${REPO_PATH}")
-	cd $(dirname "${REPO_PATH}")
-	# attempt to fetch desired repo snapshot
-	if [ -n "${SNAPSHOT_URL}" ] && wget -nv ${SNAPSHOT_URL} && tar xf source-${LINUX_SHA}.tar.gz --totals ; then
-		mv source-${LINUX_SHA} $(basename ${REPO_PATH})
-	else
-		# but fallback to git fetch approach if that fails
-		mkdir -p $(basename ${REPO_PATH})
-		cd $(basename ${REPO_PATH})
-		git init
-		git remote add origin ${KERNEL_ORIGIN}
-		# try shallow clone first
-		git fetch --depth 32 origin
-		# check if desired SHA exists
-		if ! git cat-file -e ${LINUX_SHA}^{commit} ; then
-			# if not, fetch everything; slow and painful
-			git fetch origin
-		fi
-		git reset --hard ${LINUX_SHA}
+mkdir -p $(dirname "${REPO_PATH}")
+cd $(dirname "${REPO_PATH}")
+# attempt to fetch desired repo snapshot
+if [ -n "${SNAPSHOT_URL}" ] && wget -nv ${SNAPSHOT_URL} && tar xf source-${LINUX_SHA}.tar.gz --totals ; then
+	mv source-${LINUX_SHA} $(basename ${REPO_PATH})
+else
+	# but fallback to git fetch approach if that fails
+	mkdir -p $(basename ${REPO_PATH})
+	cd $(basename ${REPO_PATH})
+	git init
+	git remote add origin ${KERNEL_ORIGIN}
+	# try shallow clone first
+	git fetch --depth 32 origin
+	# check if desired SHA exists
+	if ! git cat-file -e ${LINUX_SHA}^{commit} ; then
+		# if not, fetch everything; slow and painful
+		git fetch origin
 	fi
-	rm -rf ${REPO_PATH}/.git || true
-
-	foldable end pull_kernel_srcs
+	git reset --hard ${LINUX_SHA}
 fi
+rm -rf ${REPO_PATH}/.git || true
+
+foldable end pull_kernel_srcs
