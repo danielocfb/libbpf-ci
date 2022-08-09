@@ -15,7 +15,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Get Linux source
+    - name: Get kernel source from a kernel.org hosted repository
       shell: bash
       run: |
         export KERNEL_ORIGIN='${{ inputs.repo }}'
