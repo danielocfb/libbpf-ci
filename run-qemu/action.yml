@@ -19,8 +19,8 @@ runs:
     - name: test
       shell: bash
       env:
+        ARCH: ${{ inputs.arch }}
         VMLINUZ: ${{ inputs.vmlinuz }}
         IMG: ${{ inputs.img }}
         KERNEL_ROOT: ${{ inputs.kernel-root }}
-      run: |
-        ARCH="${{ inputs.arch }}" ${GITHUB_ACTION_PATH}/run.sh
+      run: ${GITHUB_ACTION_PATH}/run.sh

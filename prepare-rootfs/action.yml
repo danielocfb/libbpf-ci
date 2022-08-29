@@ -28,12 +28,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: |
-        export REPO_ROOT="${{ github.workspace }}"
-        export KERNEL="${{ inputs.kernel }}"
-        export KERNEL_ROOT="${{ inputs.kernel-root }}"
-        $GITHUB_ACTION_PATH/run_vmtest.sh ${{ inputs.image-output }} ${{ inputs.test }}
+    - run: $GITHUB_ACTION_PATH/run_vmtest.sh ${{ inputs.image-output }} ${{ inputs.test }}
       shell: bash
       env:
+        REPO_ROOT: ${{ github.workspace }}
         PROJECT_NAME: ${{ inputs.project-name }}
         TARGET_ARCH: ${{ inputs.arch }}
+        KERNEL: ${{ inputs.kernel }}
+        KERNEL_ROOT: ${{ inputs.kernel-root }}
