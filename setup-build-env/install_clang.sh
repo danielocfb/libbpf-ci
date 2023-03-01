@@ -22,6 +22,7 @@ n=0
 while [ $n -lt 5 ]; do
   set +e && \
   wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add - && \
+  sudo add-apt-repository ppa:ubuntu-toolchain-r/test && \
   sudo apt-get update && \
   sudo apt-get install -y clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} && \
   set -e && \
