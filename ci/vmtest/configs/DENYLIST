@@ -2,3 +2,14 @@ file_reader
 verif_scale_pyperf600
 sockmap_basic/sockmap udp multi channels
 map_kptr
+
+# These set security.* xattrs on a file in the virtiofs-shared host file
+# system. virtiofs performs the write as the invoking host user, who may
+# not set security.*, so setxattr returns EPERM. The tests treat
+# EOPNOTSUPP as "filesystem cannot do this" and skip, which is what they
+# did under vmtest's 9p, but EPERM is an unexpected error and fails them.
+# No coverage is lost: they never ran here.
+fs_kfuncs/security_bpf_xattr
+fs_kfuncs/security_bpf_xattr_error
+fs_kfuncs/security_selinux_xattr_error
+fs_kfuncs/set_remove_xattr
