@@ -1,13 +1,17 @@
 name: 'run vmtest'
-description: 'Run vmtest and print summary'
+description: 'Run the kernel tests in a VM and print summary'
 inputs:
   arch:
     description: 'arch'
     required: true
+  vmlinux:
+    description: |
+      If passed, this vmlinux will be booted. Otherwise vmlinux is taken
+      from kbuild-output.
+    required: false
   vmlinuz:
     description: |
-      If passed, this vmlinuz will be used. Otherwise vmlinuz will be
-      searched via make -s image_name in kbuild-output.
+      Deprecated and ignored. The VM boots the uncompressed vmlinux.
     required: false
   kernel-root:
     description: 'kernel source dir'
@@ -27,10 +31,6 @@ inputs:
     description: 'Path to KBUILD_OUTPUT'
     required: false
     default: 'kbuild-output'
-  vmtest-release:
-    description: 'Release version of vmtest tool to use'
-    required: false
-    default: 'v0.18.0'
 
 runs:
   using: "composite"
@@ -38,28 +38,12 @@ runs:
 
     - name: Install dependencies
       shell: bash
-      env:
-        VMTEST_RELEASE: ${{ inputs.vmtest-release }}
       run: ${GITHUB_ACTION_PATH}/install-dependencies.sh
 
     # Builds from source and caches the result keyed on the source hash,
     # so this only costs a full build when the pin below moves.
     - name: Install vmsh
       uses: d-e-s-o/vmsh@496cddb7642985796cd34943d411dcc5db82e580 # v0.1.0
-
-    - name: Allow unprivileged user namespaces
-      shell: bash
-      run: |
-        source "${GITHUB_ACTION_PATH}/../helpers.sh"
-        foldable start config_userns "Configuring user namespace permissions"
-        # vmsh maps the invoking user to root inside the guest through a
-        # private user namespace. Ubuntu 24.04 denies that to unconfined
-        # binaries unless this is turned off.
-        knob=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
-        if [[ -e "${knob}" ]]; then
-          echo 0 | sudo tee "${knob}"
-        fi
-        foldable end config_userns
 
     - name: Configure KVM group perms
       shell: bash
@@ -75,7 +59,7 @@ runs:
         fi
         foldable end config_kvm
 
-    - name: Run vmtest
+    - name: Run tests in a VM
       shell: bash
       env:
         ARCH: ${{ inputs.arch }}
@@ -84,7 +68,7 @@ runs:
         KERNEL_TEST: ${{ inputs.kernel-test }}
         MAX_CPU: ${{ inputs.max-cpu }}
         OUTPUT_DIR: ${{ inputs.output-dir }}
-        VMLINUZ: ${{ inputs.vmlinuz || '' }}
+        VMLINUX: ${{ inputs.vmlinux || '' }}
       run: |
         ${GITHUB_ACTION_PATH}/run.sh
 

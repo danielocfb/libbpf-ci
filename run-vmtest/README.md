@@ -3,21 +3,41 @@
 This action is designed to run Linux Kernel BPF selftests.
 
 It expects kernel binaries as well as test runner binaries as input,
-and executes the test runners with a given kernel using the [vmtest
-tool](https://github.com/danobi/vmtest).
+and executes the test runners with a given kernel using
+[vmsh](https://github.com/d-e-s-o/vmsh), a
+[libkrun](https://github.com/containers/libkrun) based VM runner.
 
 In summary the action performs the following:
-* Download specified vmtest release
-* Install qemu and other dependencies (assuming Ubuntu environment)
+* Install test dependencies (assuming Ubuntu environment)
+* Build and cache the vmsh binary
 * Configure access to [/dev/kvm](https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine)
 * Execute run.sh
   * Set up the environment variables
   * Choose runner scripts
-  * Run vmtest
+  * Run the VM
   * Collect and test results and report
 
 Note that behavior of the running scripts is tunable mostly by the
 environment variables.
+
+The guest shares the host's file system over virtiofs and runs with the
+same working directory, so paths are the same on both sides. The share
+is read-write, because the tests write outside the working directory.
+Anything the tests need inside the VM therefore has to be installed on
+the host, see `install-dependencies.sh`.
+
+Host uids are passed through unchanged (`--no-uid-map`), matching what 9p
+did under vmtest. Writes still happen as the invoking host user, so the
+guest cannot write anything that user could not: setting `security.*`
+xattrs on a shared file gets EPERM rather than the EOPNOTSUPP that made
+those selftests skip under 9p, which is why `fs_kfuncs` subtests are
+denylisted.
+
+vmsh does not let us append to the guest kernel command line, so
+settings that used to be passed that way are either kernel config
+(`CONFIG_LOG_BUF_SHIFT`) or sysctls set by `guest-entry.sh`. The guest
+kernel needs `CONFIG_VIRTIO_MMIO`, `CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES`
+and `CONFIG_X86_MPPARSE`; see `ci/vmtest/configs/config`.
 
 ## Required inputs
 
@@ -31,13 +51,12 @@ environment variables.
   * if not set, all known test runners will run one-by-one, see `run-bpf-selftests.sh`
   * if set to `sched_ext`, then `run-scx-selftests.sh` is executed
 * `max-cpu` - limit number of cpus to use
-* `vmlinuz` - path to the kernel bzImage, passed to vmtest
-  * if not specified, `$VMLINUZ` var is checked
-  * if `$VMLINUZ` is not set, the script will attempt to run `make -s
-    image_name` to find the image
+* `vmlinux` - path to the uncompressed kernel ELF image to boot
+  * if not specified, `$VMLINUX` var is checked
+  * if `$VMLINUX` is not set, `$KBUILD_OUTPUT/vmlinux` is used
+* `vmlinuz` - deprecated and ignored; the VM boots `vmlinux`
 * `output-dir` - path for test runner summaries and veristat output
 * `kbuild-output` (default: `./kbuild-output`) - path to Linux Kernel binaries, aka `$KBUILD_OUTPUT`
-* `vmtest-release` - release version name of the vmtest tool
 
 ## Kernel splats
 
