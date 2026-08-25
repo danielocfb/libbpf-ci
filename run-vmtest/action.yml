@@ -42,6 +42,25 @@ runs:
         VMTEST_RELEASE: ${{ inputs.vmtest-release }}
       run: ${GITHUB_ACTION_PATH}/install-dependencies.sh
 
+    # Builds from source and caches the result keyed on the source hash,
+    # so this only costs a full build when the pin below moves.
+    - name: Install vmsh
+      uses: d-e-s-o/vmsh@496cddb7642985796cd34943d411dcc5db82e580 # v0.1.0
+
+    - name: Allow unprivileged user namespaces
+      shell: bash
+      run: |
+        source "${GITHUB_ACTION_PATH}/../helpers.sh"
+        foldable start config_userns "Configuring user namespace permissions"
+        # vmsh maps the invoking user to root inside the guest through a
+        # private user namespace. Ubuntu 24.04 denies that to unconfined
+        # binaries unless this is turned off.
+        knob=/proc/sys/kernel/apparmor_restrict_unprivileged_userns
+        if [[ -e "${knob}" ]]; then
+          echo 0 | sudo tee "${knob}"
+        fi
+        foldable end config_userns
+
     - name: Configure KVM group perms
       shell: bash
       run: |
