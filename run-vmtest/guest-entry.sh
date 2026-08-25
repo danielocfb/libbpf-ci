@@ -13,10 +13,9 @@
 # which creates /run/netns. Give the guest its own /run, which also keeps
 # it from leaving state behind on the host. vmtest's init did the same.
 #
-# Not via mount(8): it is setuid root, and vmsh runs us in a user
-# namespace where the host's root is unmapped, so the binary appears
-# setuid *nobody* and exec'ing it drops privileges instead of granting
-# them. Call the syscall directly, which is all iproute2 and the
+# Not via mount(8): it is setuid root, which makes it sensitive to how
+# the VMM maps host uids into the guest, and we would rather not depend
+# on that here. Call the syscall directly, which is all iproute2 and the
 # selftests themselves do.
 if ! python3 -c '
 import ctypes, os, sys

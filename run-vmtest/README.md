@@ -11,7 +11,6 @@ In summary the action performs the following:
 * Install test dependencies (assuming Ubuntu environment)
 * Build and cache the vmsh binary
 * Configure access to [/dev/kvm](https://en.wikipedia.org/wiki/Kernel-based_Virtual_Machine)
-  and to unprivileged user namespaces
 * Execute run.sh
   * Set up the environment variables
   * Choose runner scripts
@@ -26,6 +25,13 @@ same working directory, so paths are the same on both sides. The share
 is read-write, because the tests write outside the working directory.
 Anything the tests need inside the VM therefore has to be installed on
 the host, see `install-dependencies.sh`.
+
+Host uids are passed through unchanged (`--no-uid-map`), matching what 9p
+did under vmtest. Writes still happen as the invoking host user, so the
+guest cannot write anything that user could not: setting `security.*`
+xattrs on a shared file gets EPERM rather than the EOPNOTSUPP that made
+those selftests skip under 9p, which is why `fs_kfuncs` subtests are
+denylisted.
 
 vmsh does not let us append to the guest kernel command line, so
 settings that used to be passed that way are either kernel config

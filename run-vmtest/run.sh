@@ -117,15 +117,24 @@ VMTEST_MEMORY_MIB=$(to_mib "${VMTEST_MEMORY}")
 
 # --all-envs, because the in-VM scripts are configured entirely through
 # the environment. --share-rw /, to match the read-write host root vmtest
-# gave us, rather than vmsh's read-only default. vmsh runs the command
-# with the host's working directory, and exec's it without a shell, hence
-# guest-entry.sh.
+# gave us, rather than vmsh's read-only default. --no-uid-map, so that
+# host uids reach the guest unchanged the way 9p passed them through
+# under vmtest; see below. vmsh runs the command with the host's working
+# directory, and exec's it without a shell, hence guest-entry.sh.
+#
+# On --no-uid-map: by default vmsh maps the invoking user to root through
+# a user namespace, which leaves the host's root *unmapped*. Every
+# root-owned setuid binary then looks setuid-nobody, and exec'ing one
+# drops privileges instead of granting them. That breaks any selftest
+# shelling out to mount(8) -- test_ima's ima_setup.sh, for one, which
+# fails with "cannot mount /dev/loop0".
 vmsh \
 	--kernel "${VMLINUX}" \
 	--cpus "${VMTEST_NUM_CPUS}" \
 	--memory "${VMTEST_MEMORY_MIB}" \
 	--all-envs \
 	--share-rw / \
+	--no-uid-map \
 	-- "${GITHUB_ACTION_PATH}/guest-entry.sh" "${VMTEST_SCRIPT}" ${TEST_RUNNERS}
 
 foldable end vmsh
