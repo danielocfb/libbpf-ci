@@ -3,7 +3,9 @@
 set -euo pipefail
 
 SELFTESTS_DIR="${KERNEL_ROOT}/selftests/sched_ext"
-STATUS_FILE=/mnt/vmtest/exitstatus
+# Exported so that check-kernel-splats.sh, which runs after we have
+# changed directory into $SELFTESTS_DIR, resolves the same path.
+export STATUS_FILE=${STATUS_FILE:-"$(pwd)/exitstatus"}
 
 cd "${SELFTESTS_DIR}"
 

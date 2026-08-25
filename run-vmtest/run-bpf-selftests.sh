@@ -1,9 +1,10 @@
 #!/bin/bash
 
-# This script is expected to be executed by vmtest program (a qemu
-# wrapper). By default vmtest mounts working directory to /mnt/vmtest,
-# which is why this path is often assumed in the script. The working
-# directory is usually (although not necessarily) the
+# This script is expected to be executed inside the VM, with the host's
+# working directory shared into the guest. run.sh exports $SELFTESTS_BPF,
+# $STATUS_FILE, $OUTPUT_DIR and $VERISTAT_CONFIGS as absolute paths below
+# that directory; the fallbacks here only apply when the script is run by
+# hand. The working directory is usually (although not necessarily) the
 # $GITHUB_WORKSPACE of the Github Action workflow, calling
 # libbpf/ci/run-vmtest action.
 # See also action.yml and run.sh
@@ -19,11 +20,13 @@ source "${SCRIPT_DIR}/helpers.sh"
 
 ARCH=$(uname -m)
 
-export SELFTESTS_BPF=${SELFTESTS_BPF:-/mnt/vmtest/selftests/bpf}
+export SELFTESTS_BPF=${SELFTESTS_BPF:-"$(pwd)/selftests/bpf"}
 export BPFTOOL=$(find $(realpath "$SELFTESTS_BPF/tools/sbin") -type f -name bpftool)
 
-STATUS_FILE=${STATUS_FILE:-/mnt/vmtest/exitstatus}
-OUTPUT_DIR=${OUTPUT_DIR:-/mnt/vmtest}
+# Exported so that check-kernel-splats.sh, which runs after we have
+# changed directory into $SELFTESTS_BPF, resolves the same paths.
+export STATUS_FILE=${STATUS_FILE:-"$(pwd)/exitstatus"}
+export OUTPUT_DIR=${OUTPUT_DIR:-"$(pwd)"}
 
 test_progs_helper() {
   local selftest="test_progs${1}"
@@ -95,7 +98,7 @@ test_progs-bpf_gcc() {
 }
 
 export VERISTAT_TARGET=${VERISTAT_TARGET:-kernel}
-export VERISTAT_CONFIGS=${VERISTAT_CONFIGS:-/mnt/vmtest/ci/vmtest/configs}
+export VERISTAT_CONFIGS=${VERISTAT_CONFIGS:-"$(pwd)/ci/vmtest/configs"}
 export WORKING_DIR=$(pwd) # veristat config expects this variable
 
 run_veristat() {

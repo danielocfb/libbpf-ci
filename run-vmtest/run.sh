@@ -42,9 +42,20 @@ then
 fi
 
 VMTEST_CONFIGS=${VMTEST_CONFIGS:-}
+
+# The guest shares this working directory, so pin the paths the in-VM
+# scripts write to here instead of letting them guess at a mount point.
+# Both sides then agree on where the status file and the test output land.
+export SELFTESTS_BPF=${SELFTESTS_BPF:-"${PWD}/selftests/bpf"}
+export STATUS_FILE=${STATUS_FILE:-"${PWD}/exitstatus"}
+export OUTPUT_DIR=${OUTPUT_DIR:-"${PWD}"}
+export VERISTAT_CONFIGS=${VERISTAT_CONFIGS:-${VMTEST_CONFIGS:-"${PWD}/ci/vmtest/configs"}}
+
+# Sourced after the above, because it builds the allow/denylist paths out
+# of $SELFTESTS_BPF.
 if [[ -n "$VMTEST_CONFIGS" && -f "${VMTEST_CONFIGS}/run-vmtest.env" ]];
 then
-    source "${VMTEST_CONFIGS:-}/run-vmtest.env"
+    source "${VMTEST_CONFIGS}/run-vmtest.env"
 fi
 
 VMTEST_SCRIPT=${VMTEST_SCRIPT:-}
@@ -58,7 +69,7 @@ then
 fi
 
 # clear exitstatus file
-echo -n > exitstatus
+echo -n > "${STATUS_FILE}"
 
 foldable start bpftool_checks "Running bpftool checks..."
 
@@ -76,7 +87,7 @@ if [[ -n "${RUN_BPFTOOL_CHECKS}" ]]; then
 	else
 		echo "bpftool checks returned ${bpftool_exitstatus}."
 	fi
-	echo "bpftool:${bpftool_exitstatus}" >> exitstatus
+	echo "bpftool:${bpftool_exitstatus}" >> "${STATUS_FILE}"
 else
 	echo "bpftool checks skipped."
 fi
@@ -117,7 +128,7 @@ rm -f $VMTEST_TOML
 
 foldable end vmtest
 
-if grep -q '^kernel_splats:1$' exitstatus; then
+if grep -q '^kernel_splats:1$' "${STATUS_FILE}"; then
   splat_error="kernel splat check failed"
   if [[ -s kernel_splats.log ]]; then
     cat kernel_splats.log
@@ -130,7 +141,7 @@ fi
 
 foldable start collect_status "Collecting exit status"
 
-exitfile="$(cat exitstatus 2>/dev/null)"
+exitfile="$(cat "${STATUS_FILE}" 2>/dev/null)"
 exitstatus="$(echo -e "$exitfile" | awk --field-separator ':' \
   'BEGIN { s=0 } { if ($2) {s=1} } END { print s }')"
 

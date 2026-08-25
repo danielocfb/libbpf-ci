@@ -24,8 +24,8 @@ set -euo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/helpers.sh"
 
-STATUS_FILE=${STATUS_FILE:-/mnt/vmtest/exitstatus}
-OUTPUT_DIR=${OUTPUT_DIR:-/mnt/vmtest}
+STATUS_FILE=${STATUS_FILE:-"$(pwd)/exitstatus"}
+OUTPUT_DIR=${OUTPUT_DIR:-"$(pwd)"}
 SPLAT_DENYLIST_FILE=${SPLAT_DENYLIST_FILE:-}
 SPLAT_ALLOWLIST_FILE=${SPLAT_ALLOWLIST_FILE:-}
 SPLAT_LOG_FILE=${SPLAT_LOG_FILE:-"$(dirname "${STATUS_FILE}")/kernel_splats.log"}
