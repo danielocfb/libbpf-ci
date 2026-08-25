@@ -1,3 +1,21 @@
 CONFIG_LIVEPATCH=y
 CONFIG_SAMPLES=y
 CONFIG_SAMPLE_LIVEPATCH=m
+
+# libkrun exposes its virtio devices over MMIO and announces them with
+# virtio_mmio.device= on the kernel command line. selftests/bpf/config.vm
+# only asks for the PCI transport, so without these the guest comes up
+# with no console, no rootfs and no way to report back.
+CONFIG_VIRTIO_MMIO=y
+CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
+
+# libkrun hands the guest an MP table and no ACPI RSDP, so this is the
+# only way the kernel gets told about the secondary CPUs. It defaults to
+# y, but the failure mode if it ever stops doing so is silent -- the VM
+# boots fine on a single CPU -- so pin it.
+CONFIG_X86_MPPARSE=y
+
+# 16 MiB of kernel log, so that a splat early in a long test run is still
+# in the buffer when check-kernel-splats.sh reads it. Replaces the
+# log_buf_len=16M command line argument, which we can no longer pass.
+CONFIG_LOG_BUF_SHIFT=24
