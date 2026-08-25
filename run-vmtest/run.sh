@@ -8,30 +8,23 @@ source "${GITHUB_ACTION_PATH}/../helpers.sh"
 export ARCH=${ARCH:-$(uname -m)}
 export KERNEL=${KERNEL:-"LATEST"}
 
-export VMLINUZ=${VMLINUZ:-}
-if [[ ! -f "${VMLINUZ}" ]]; then
-    echo "Could not find VMLINUZ=\"$VMLINUZ\", searching with make -s image_name"
-    karch=$(platform_to_kernel_arch $ARCH)
-    image_name=$(ARCH=${karch} make -C ${KERNEL_ROOT} -s image_name)
-    export VMLINUZ=$(realpath ${KBUILD_OUTPUT})/${image_name}
-fi
-
-if [[ ! -f "${VMLINUZ}" ]]; then
-    echo "Could not find VMLINUZ (compressed kernel binary), exiting"
-    exit 2
-fi
-
-# Create a symlink to vmlinux from a "standard" location
-# See btf__load_vmlinux_btf() in libbpf
-export VMLINUX=${VMLINUX:-"$KBUILD_OUTPUT/vmlinux"}
-if [[ -f "${VMLINUX}" ]]; then
-    VMLINUX_VERSION="$(strings ${VMLINUX} | grep -m 1 'Linux version' | awk '{print $3}')" || true
-    sudo mkdir -p /usr/lib/debug/boot
-    sudo ln -sf "${VMLINUX}" "/usr/lib/debug/boot/vmlinux-${VMLINUX_VERSION}"
-else
+# vmsh boots the uncompressed ELF image, so unlike vmtest we have no use
+# for the compressed one and no need to ask the kernel Makefile what it
+# is called. The same file is what libbpf reads BTF out of below.
+VMLINUX=${VMLINUX:-"$KBUILD_OUTPUT/vmlinux"}
+if [[ ! -f "${VMLINUX}" ]]; then
     echo "Could not find VMLINUX=\"$VMLINUX\", exiting"
     exit 2
 fi
+# Absolute, because it is about to become a symlink target elsewhere in
+# the file system.
+export VMLINUX=$(realpath "${VMLINUX}")
+
+# Create a symlink to vmlinux from a "standard" location
+# See btf__load_vmlinux_btf() in libbpf
+VMLINUX_VERSION="$(strings ${VMLINUX} | grep -m 1 'Linux version' | awk '{print $3}')" || true
+sudo mkdir -p /usr/lib/debug/boot
+sudo ln -sf "${VMLINUX}" "/usr/lib/debug/boot/vmlinux-${VMLINUX_VERSION}"
 
 RUN_BPFTOOL_CHECKS=${RUN_BPFTOOL_CHECKS:-}
 if [[ -z "${RUN_BPFTOOL_CHECKS}" \
@@ -94,39 +87,48 @@ fi
 
 foldable end bpftool_checks
 
-foldable start vmtest "Starting virtual machine..."
+foldable start vmsh "Starting virtual machine..."
 
-# Tests may be comma-separated. vmtest_selftest expect them to come from CLI space-separated.
+# Tests may be comma-separated. The test script expects them to come from
+# the CLI space-separated.
 TEST_RUNNERS=$(echo ${KERNEL_TEST} | tr -s ',' ' ')
 
 VMTEST_NUM_CPUS=${VMTEST_NUM_CPUS:-2}
 VMTEST_MEMORY=${VMTEST_MEMORY:-4G}
 
-VMTEST_TOML=$(mktemp ./vmtest.XXXXXX.toml)
-cat > $VMTEST_TOML <<EOF
-[[target]]
-name = "run-vmtest"
-kernel = "${VMLINUZ}"
-kernel_args = "panic=-1 kasan_multi_shot no5lvl"
-command = """\
-${GITHUB_ACTION_PATH}/vmtest-init.sh && \
-cd ${GITHUB_WORKSPACE} && \
-${VMTEST_SCRIPT} ${TEST_RUNNERS} \
-"""
+# vmsh wants a bare number of MiB, whereas VMTEST_MEMORY is spelled the
+# way QEMU spells it.
+to_mib() {
+	local value=${1^^}
+	local digits=${value%%[!0-9]*}
 
-[target.vm]
-num_cpus = ${VMTEST_NUM_CPUS}
-memory = "${VMTEST_MEMORY}"
-EOF
+	case "${value}" in
+		"")                 echo "VMTEST_MEMORY is empty" >&2; return 1 ;;
+		"${digits}"G|"${digits}"GB|"${digits}"GIB) echo $((digits * 1024)) ;;
+		"${digits}"M|"${digits}"MB|"${digits}"MIB) echo "${digits}" ;;
+		"${digits}")        echo "${digits}" ;;
+		*)                  echo "Cannot parse VMTEST_MEMORY=\"$1\"" >&2; return 1 ;;
+	esac
+}
 
-foldable start vmtest_toml "$VMTEST_TOML"
-cat $VMTEST_TOML
-foldable end vmtest_toml
+# Via a variable, so that a VMTEST_MEMORY we cannot parse trips set -e
+# rather than handing vmsh an empty --memory.
+VMTEST_MEMORY_MIB=$(to_mib "${VMTEST_MEMORY}")
 
-vmtest -c $VMTEST_TOML
-rm -f $VMTEST_TOML
+# --all-envs, because the in-VM scripts are configured entirely through
+# the environment. --share-rw /, to match the read-write host root vmtest
+# gave us, rather than vmsh's read-only default. vmsh runs the command
+# with the host's working directory, and exec's it without a shell, hence
+# guest-entry.sh.
+vmsh \
+	--kernel "${VMLINUX}" \
+	--cpus "${VMTEST_NUM_CPUS}" \
+	--memory "${VMTEST_MEMORY_MIB}" \
+	--all-envs \
+	--share-rw / \
+	-- "${GITHUB_ACTION_PATH}/guest-entry.sh" "${VMTEST_SCRIPT}" ${TEST_RUNNERS}
 
-foldable end vmtest
+foldable end vmsh
 
 if grep -q '^kernel_splats:1$' "${STATUS_FILE}"; then
   splat_error="kernel splat check failed"
