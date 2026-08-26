@@ -14,9 +14,11 @@ jobs:
   build-and-test:
     strategy:
       matrix:
-        runs_on: ["ubuntu-24.04"]
-        build_runs_on: ["ubuntu-24.04"]
-        arch: ["x86_64"]
+        # Architecture and runner have to vary together, hence the pairing.
+        # The arm64 images are native, so nothing here cross-compiles.
+        target:
+          - {arch: "x86_64", runs_on: "ubuntu-24.04"}
+          - {arch: "aarch64", runs_on: "ubuntu-24.04-arm"}
         kernel_compiler: ["gcc", "llvm"]
         gcc_version: [14]
         llvm_version: [21]
@@ -32,18 +34,18 @@ jobs:
             # - {"test": "test_progs-bpf_gcc", "continue_on_error": false, "timeout_minutes": 360}
       fail-fast: false
 
-    name: ${{ matrix.arch }} ${{ matrix.kernel_compiler }}-${{ matrix.kernel_compiler == 'gcc' && matrix.gcc_version || matrix.llvm_version }}
+    name: ${{ matrix.target.arch }} ${{ matrix.kernel_compiler }}-${{ matrix.kernel_compiler == 'gcc' && matrix.gcc_version || matrix.llvm_version }}
     uses: ./.github/workflows/kernel-build-test.yml
     permissions:
       id-token: write
       contents: read
 
     with:
-      arch: ${{ matrix.arch }}
+      arch: ${{ matrix.target.arch }}
       toolchain: ${{ matrix.kernel_compiler }}
       toolchain_full: ${{ matrix.kernel_compiler }}-${{ matrix.kernel_compiler == 'gcc' && matrix.gcc_version || matrix.llvm_version }}
-      runs_on: ${{ toJSON(matrix.runs_on) }}
-      build_runs_on: ${{ toJSON(matrix.build_runs_on) }}
+      runs_on: ${{ toJSON(matrix.target.runs_on) }}
+      build_runs_on: ${{ toJSON(matrix.target.runs_on) }}
       gcc_version: ${{ matrix.gcc_version }}
       llvm_version: ${{ matrix.llvm_version }}
       kernel: ${{ matrix.kernel }}
