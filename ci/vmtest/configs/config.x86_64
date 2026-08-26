@@ -1,3 +1,10 @@
 CONFIG_KASAN=y
 CONFIG_KASAN_GENERIC=y
 CONFIG_KASAN_VMALLOC=y
+
+# On x86_64 libkrun hands the guest an MP table and no ACPI RSDP, so this
+# is the only way the kernel gets told about the secondary CPUs. It
+# defaults to y, but the failure mode if it ever stops doing so is silent
+# -- the VM boots fine on a single CPU -- so pin it. aarch64 gets the
+# same information out of the device tree and needs nothing here.
+CONFIG_X86_MPPARSE=y
