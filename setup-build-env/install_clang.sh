@@ -8,42 +8,61 @@ foldable start install_clang "Install LLVM ${LLVM_VERSION}"
 
 source /etc/os-release
 
-if [[ "${ID}" == "ubuntu" ]]; then
-    # Use official installation script for Ubuntu
+# Deliberately *not* installed: lldb, liblldb-dev, libc++, libc++abi, libomp
+# and libunwind. apt.llvm.org ships those under unversioned names (libc++1,
+# libc++abi1, libomp5, llvm-libunwind1, python3-lldb-${LLVM_VERSION}) that
+# claim the same "<foo>-x.y" virtual packages as the distribution's own LLVM
+# stack, so they are unsolvable on any image that already carries one -- e.g.
+# the GitHub-hosted ubuntu-24.04 runner, which comes with LLVM 18. The lldb
+# packages additionally drag in the libpython of the *repository's* release,
+# not the one of the running system. None of them are needed to build the
+# kernel, the selftests or scx.
+PACKAGES=(
+    "clang-${LLVM_VERSION}"
+    "clang-format-${LLVM_VERSION}"
+    "clang-tidy-${LLVM_VERSION}"
+    "clang-tools-${LLVM_VERSION}"
+    "clangd-${LLVM_VERSION}"
+    "libclang-${LLVM_VERSION}-dev"
+    "libclang-common-${LLVM_VERSION}-dev"
+    "libclang-cpp${LLVM_VERSION}-dev"
+    "libclang-rt-${LLVM_VERSION}-dev"
+    "libpolly-${LLVM_VERSION}-dev"
+    "lld-${LLVM_VERSION}"
+    "llvm-${LLVM_VERSION}-dev"
+    "llvm-${LLVM_VERSION}-tools"
+)
+
+case "${ID}" in
+ubuntu)
+    # Ubuntu does not carry the LLVM versions we need, so pull them from
+    # apt.llvm.org. We set the repository up by hand instead of going through
+    # https://apt.llvm.org/llvm.sh, because that script insists on installing
+    # a package set of its own choosing.
     sudo apt-get update -y
     sudo -E apt-get install --no-install-recommends -y \
-        curl gnupg lsb-release software-properties-common wget
-    curl -O https://apt.llvm.org/llvm.sh
-    chmod +x llvm.sh
-    sudo ./llvm.sh ${LLVM_VERSION} all
-elif [[ "${ID}" == "debian" ]]; then
-    # For Debian, install packages directly from repos
-    # Recent debian considers SHA1 insecure, and llvm.sh hasn't been fixed yet
-    # Install packages direcctly from repos, assuming LLVM_VERSION is available
-    sudo apt-get update -y
-    sudo -E apt-get install --no-install-recommends -y \
-        clang-${LLVM_VERSION} \
-        lldb-${LLVM_VERSION} \
-        lld-${LLVM_VERSION} \
-        clangd-${LLVM_VERSION} \
-        clang-tidy-${LLVM_VERSION} \
-        clang-format-${LLVM_VERSION} \
-        clang-tools-${LLVM_VERSION} \
-        llvm-${LLVM_VERSION}-dev \
-        llvm-${LLVM_VERSION}-tools \
-        libomp-${LLVM_VERSION}-dev \
-        libc++-${LLVM_VERSION}-dev \
-        libc++abi-${LLVM_VERSION}-dev \
-        libclang-common-${LLVM_VERSION}-dev \
-        libclang-${LLVM_VERSION}-dev \
-        libclang-cpp${LLVM_VERSION}-dev \
-        liblldb-${LLVM_VERSION}-dev \
-        libunwind-${LLVM_VERSION}-dev \
-        libclang-rt-${LLVM_VERSION}-dev \
-        libpolly-${LLVM_VERSION}-dev
-else
-     echo "$(basename "$0") unexpected distro: ${ID}" >&2
-     exit 1
-fi
+        ca-certificates curl gnupg wget
+    KEYRING=/etc/apt/keyrings/apt.llvm.org.asc
+    curl --fail --silent --show-error --location \
+        https://apt.llvm.org/llvm-snapshot.gpg.key |
+        sudo install -D -m 0644 /dev/stdin "${KEYRING}"
+    # Derivatives keep the upstream Ubuntu release in UBUNTU_CODENAME, which
+    # is the one apt.llvm.org publishes under.
+    CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME}}"
+    echo "deb [signed-by=${KEYRING}] https://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${LLVM_VERSION} main" |
+        sudo tee "/etc/apt/sources.list.d/llvm-${LLVM_VERSION}.list"
+    ;;
+debian)
+    # Everything we need is in the distribution repositories already,
+    # assuming LLVM_VERSION is available there.
+    ;;
+*)
+    echo "$(basename "$0") unexpected distro: ${ID}" >&2
+    exit 1
+    ;;
+esac
+
+sudo apt-get update -y
+sudo -E apt-get install --no-install-recommends -y "${PACKAGES[@]}"
 
 foldable end install_clang
